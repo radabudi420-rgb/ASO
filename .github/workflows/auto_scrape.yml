@@ -2,8 +2,12 @@ name: Auto Scrape Play Store Intelligence
 
 on:
   schedule:
-    - cron: '0 0 * * 1' # Otomatis setiap hari Senin jam 00:00 UTC
-  workflow_dispatch: # Tombol manual "Run workflow" di tab Actions GitHub
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+# Mengizinkan GitHub Actions menulis/menyimpan database.json kembali ke repo
+permissions:
+  contents: write
 
 jobs:
   scrape-and-update:
@@ -25,89 +29,7 @@ jobs:
 
       - name: Commit and Push Updated Data
         run: |
-          git config --global user.name "Alma Market Bot"
-          git config --global user.email "bot@alma.local"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add database.json
-          git commit -m "Auto-update market research data [skip ci]" || exit 0
-          git push        let appData = [];
-
-        async function fetchDatabase() {
-            try {
-                const response = await fetch('database.json');
-                appData = await response.json();
-                applyAllFilters();
-            } catch (e) {
-                console.error("Gagal memuat database.json", e);
-            }
-        }
-
-        function renderTable(data) {
-            const tbody = document.getElementById('researchTable');
-            tbody.innerHTML = '';
-            document.getElementById('totalApps').innerText = data.length;
-
-            if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500">Data belum tersedia atau tidak ada yang sesuai filter. Selesaikan jalankan aksi GitHub Scraper pertama Anda.</td></tr>`;
-                return;
-            }
-
-            data.forEach(item => {
-                const row = `
-                    <tr class="hover:bg-slate-700/40 transition-colors">
-                        <td class="p-4">
-                            <div class="font-semibold text-slate-100">${item.title}</div>
-                            <div class="flex items-center gap-2 mt-1">
-                                <span class="text-xs text-slate-400 font-mono">${item.package}</span>
-                                <span class="text-[10px] bg-slate-700 text-amber-300/90 px-2 py-0.5 rounded font-mono font-medium">${item.category}</span>
-                            </div>
-                        </td>
-                        <td class="p-4">
-                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                <i class="fa-solid fa-fire text-[10px]"></i> +${item.recentDownloads.toLocaleString()} / bln
-                            </span>
-                        </td>
-                        <td class="p-4">
-                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                <i class="fa-solid fa-download text-[10px]"></i> ${item.installsText}
-                            </span>
-                        </td>
-                        <td class="p-4 text-xs text-slate-300">${item.releaseDate}</td>
-                        <td class="p-4 text-amber-400 font-bold"><i class="fa-solid fa-star text-xs"></i> ${item.score}</td>
-                        <td class="p-4 text-center">
-                            <a href="https://play.google.com/store/apps/details?id=${item.package}" target="_blank" class="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 transition-colors" title="Lihat di Play Store">
-                                <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
-                            </a>
-                        </td>
-                    </tr>
-                `;
-                tbody.innerHTML += row;
-            });
-        }
-
-        function applyAllFilters() {
-            const query = document.getElementById('searchInput').value.toLowerCase();
-            const category = document.getElementById('categoryFilter').value;
-            const minDownloads = parseInt(document.getElementById('downloadsFilter').value, 10);
-            const sortBy = document.getElementById('sortFilter').value;
-
-            let filtered = appData.filter(item => {
-                const matchesSearch = item.title.toLowerCase().includes(query) || item.package.toLowerCase().includes(query);
-                const matchesCategory = (category === 'ALL') || (item.category === category);
-                const matchesDownloads = item.rawInstalls >= minDownloads;
-                return matchesSearch && matchesCategory && matchesDownloads;
-            });
-
-            filtered.sort((a, b) => {
-                if (sortBy === 'RECENT_DESC') return b.recentDownloads - a.recentDownloads;
-                if (sortBy === 'NEWEST') return new Date(b.releaseDate) - new Date(a.releaseDate);
-                if (sortBy === 'DOWNLOADS_DESC') return b.rawInstalls - a.rawInstalls;
-                if (sortBy === 'SCORE_DESC') return b.score - a.score;
-            });
-
-            renderTable(filtered);
-        }
-
-        window.onload = fetchDatabase;
-    </script>
-</body>
-</html>
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update market research data" && git push)
