@@ -1,106 +1,35 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alma Research V2 - Play Store Intelligence</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-</head>
-<body class="bg-slate-900 text-slate-100 font-sans antialiased min-h-screen p-4 md:p-8">
+name: Auto Scrape Play Store Intelligence
 
-    <div class="max-w-7xl mx-auto space-y-6">
-        
-        <!-- Header -->
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-800/80 backdrop-blur p-6 rounded-2xl border border-slate-700 shadow-xl">
-            <div>
-                <h1 class="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-amber-300 bg-clip-text text-transparent">
-                    <i class="fa-solid fa-chart-line mr-2"></i>Play Store Market Intelligence V2
-                </h1>
-                <p class="text-xs text-slate-400 mt-1">Radar analisis pasar otomatis & tren unduhan bulanan</p>
-            </div>
-            
-            <div class="flex gap-4 text-center">
-                <div class="bg-slate-900/60 px-4 py-2 rounded-xl border border-slate-700/50">
-                    <div class="text-xs text-slate-400">Total Aplikasi</div>
-                    <div id="totalApps" class="text-lg font-bold text-amber-400">0</div>
-                </div>
-            </div>
-        </div>
+on:
+  schedule:
+    - cron: '0 0 * * 1' # Otomatis setiap hari Senin jam 00:00 UTC
+  workflow_dispatch: # Tombol manual "Run workflow" di tab Actions GitHub
 
-        <!-- Filter Bar -->
-        <div class="bg-slate-800/60 p-4 rounded-2xl border border-slate-700 space-y-3">
-            <input type="text" id="searchInput" onkeyup="applyAllFilters()" placeholder="Cari nama aplikasi, package name, atau keyword..." 
-                   class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500">
+jobs:
+  scrape-and-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <!-- Filter Kategori -->
-                <div>
-                    <label class="text-[11px] text-slate-400 font-semibold mb-1 block">KATEGORI</label>
-                    <select id="categoryFilter" onchange="applyAllFilters()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200">
-                        <option value="ALL">Semua Kategori</option>
-                        <optgroup label="📱 APLIKASI">
-                            <option value="BOOKS_AND_REFERENCE">Books & Reference</option>
-                            <option value="EDUCATION">Education</option>
-                            <option value="LIFESTYLE">Lifestyle</option>
-                            <option value="TOOLS">Tools & Utility</option>
-                            <option value="PRODUCTIVITY">Productivity</option>
-                            <option value="BUSINESS">Business</option>
-                            <option value="ENTERTAINMENT">Entertainment</option>
-                        </optgroup>
-                        <optgroup label="🎮 GAME">
-                            <option value="GAME_TRIVIA">Game - Trivia</option>
-                        </optgroup>
-                    </select>
-                </div>
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
-                <!-- Minimal Download -->
-                <div>
-                    <label class="text-[11px] text-slate-400 font-semibold mb-1 block">MINIMAL TOTAL DOWNLOAD</label>
-                    <select id="downloadsFilter" onchange="applyAllFilters()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs">
-                        <option value="0">Semua Total Download</option>
-                        <option value="10000">10.000+ Downloads</option>
-                        <option value="100000">100.000+ Downloads</option>
-                        <option value="1000000">1.000.000+ Downloads</option>
-                    </select>
-                </div>
+      - name: Install Google Play Scraper
+        run: pip install google-play-scraper
 
-                <!-- Urutan / Sortir -->
-                <div>
-                    <label class="text-[11px] text-slate-400 font-semibold mb-1 block">URUTKAN BERDASARKAN</label>
-                    <select id="sortFilter" onchange="applyAllFilters()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs">
-                        <option value="RECENT_DESC">🔥 Recent Downloads (Bulan Ini)</option>
-                        <option value="NEWEST">✨ Aplikasi Terbaru Rilis</option>
-                        <option value="DOWNLOADS_DESC">📥 Total Download</option>
-                        <option value="SCORE_DESC">⭐ Rating Highest</option>
-                    </select>
-                </div>
-            </div>
-        </div>
+      - name: Run Scraper Script
+        run: python scraper.py
 
-        <!-- Data Table Chart V2 -->
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-900/80 text-slate-400 text-xs uppercase border-b border-slate-700">
-                            <th class="p-4">App Info & Category</th>
-                            <th class="p-4">Recent Downloads (30 Hari)</th>
-                            <th class="p-4">Total Downloads</th>
-                            <th class="p-4">Release Date</th>
-                            <th class="p-4">Rating</th>
-                            <th class="p-4 text-center">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="researchTable" class="divide-y divide-slate-700/60 text-sm"></tbody>
-                </table>
-            </div>
-        </div>
-
-    </div>
-
-    <script>
-        let appData = [];
+      - name: Commit and Push Updated Data
+        run: |
+          git config --global user.name "Alma Market Bot"
+          git config --global user.email "bot@alma.local"
+          git add database.json
+          git commit -m "Auto-update market research data [skip ci]" || exit 0
+          git push        let appData = [];
 
         async function fetchDatabase() {
             try {
